@@ -1,59 +1,57 @@
 package com.example.segundoparcial.data
 
-import com.example.segundoparcial.data.Mapeador.toDto
-import com.example.segundoparcial.data.Mapeador.toEntity
-import com.example.segundoparcial.data.Mapeador.toEntityList
 import com.example.segundoparcial.data.local.ElementoDao
 import com.example.segundoparcial.data.local.ElementoEntity
-import com.example.segundoparcial.data.remote.ApiService
+import com.example.segundoparcial.data.repository.ProductoRepository
+import com.example.segundoparcial.data.repository.PublicacionRepository
+import com.example.segundoparcial.data.repository.TipoCambioRepository
+import com.example.segundoparcial.model.Producto
+import com.example.segundoparcial.model.Publicacion
+import com.example.segundoparcial.model.TipoCambio
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Repositorio unificado para coordinar la base de datos local (Room) y las llamadas a la API (Retrofit).
+ * Repositorio principal que unifica los 3 repositorios específicos (Productos, Tipos de Cambio, Publicaciones)
+ * y la base de datos local (Room).
  */
 class Repository(
     private val dao: ElementoDao,
-    private val api: ApiService
+    val productoRepository: ProductoRepository = ProductoRepository(),
+    val tipoCambioRepository: TipoCambioRepository = TipoCambioRepository(),
+    val publicacionRepository: PublicacionRepository = PublicacionRepository()
 ) {
 
-    // Obtenemos los elementos almacenados localmente de forma reactiva (Flow)
     val elementosLocal: Flow<List<ElementoEntity>> = dao.obtenerTodos()
 
-    // Sincroniza obteniendo los datos de la API e insertándolos en Room
-    suspend fun refrescarDatosDesdeApi(): Result<Unit> {
-        return runCatching {
-            val dtos = api.obtenerElementos()
-            val entidades = dtos.toEntityList()
+    suspend fun refrescarProductosDesdeApi(): Result<List<Producto>> {
+        val resultado = productoRepository.obtenerProductos()
+        resultado.onSuccess { productos ->
+            val entidades = productos.map {
+                ElementoEntity(
+                    id = it.id,
+                    titulo = it.titulo,
+                    descripcion = it.descripcion,
+                    precio = it.precioUSD.toDouble()
+                )
+            }
             dao.insertarLista(entidades)
         }
+        return resultado
     }
 
-    // Insertar un solo elemento localmente
+    suspend fun obtenerTasasDesdeApi(): Result<List<TipoCambio>> {
+        return tipoCambioRepository.obtenerTasas()
+    }
+
+    suspend fun obtenerPublicacionesDesdeApi(): Result<List<Publicacion>> {
+        return publicacionRepository.obtenerPublicaciones()
+    }
+
     suspend fun insertarLocalmente(elemento: ElementoEntity) {
         dao.insertar(elemento)
     }
 
-    // Actualizar un elemento localmente
-    suspend fun actualizarLocalmente(elemento: ElementoEntity) {
-        dao.actualizar(elemento)
-    }
-
-    // Eliminar un elemento localmente
     suspend fun eliminarLocalmente(elemento: ElementoEntity) {
         dao.eliminar(elemento)
-    }
-
-    // Obtener un elemento por su ID desde Room
-    suspend fun obtenerPorId(id: Int): ElementoEntity? {
-        return dao.obtenerPorId(id)
-    }
-
-    // Guardar en API y actualizar Room con la respuesta
-    suspend fun crearEnApiYLocal(elemento: ElementoEntity): Result<Unit> {
-        return runCatching {
-            val dto = elemento.toDto()
-            val respuestaDto = api.crearElemento(dto)
-            dao.insertar(respuestaDto.toEntity())
-        }
     }
 }

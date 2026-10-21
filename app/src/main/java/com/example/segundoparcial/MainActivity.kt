@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import com.example.segundoparcial.data.Repository
 import com.example.segundoparcial.data.local.AppDatabase
 import com.example.segundoparcial.data.local.ElementoEntity
-import com.example.segundoparcial.data.remote.RetrofitClient
 import com.example.segundoparcial.ui.MainViewModel
 import com.example.segundoparcial.ui.theme.SegundoParcialTheme
 
@@ -52,14 +51,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // 1. Inicialización de base de datos local y cliente API
+        // 1. Inicialización de la BD y Repositorio principal (que incluye los 3 repositorios específicos)
         val database = AppDatabase.getDatabase(applicationContext)
         val repository = Repository(
-            dao = database.elementoDao(),
-            api = RetrofitClient.api
+            dao = database.elementoDao()
         )
 
-        // 2. Creación del ViewModel utilizando su Factory
+        // 2. Creación del ViewModel
         val viewModel: MainViewModel by viewModels {
             MainViewModel.Factory(repository)
         }
@@ -84,10 +82,10 @@ fun PantallaPrincipal(viewModel: MainViewModel) {
             TopAppBar(
                 title = { Text("Examen Segundo Parcial") },
                 actions = {
-                    IconButton(onClick = { viewModel.sincronizarConApi() }) {
+                    IconButton(onClick = { viewModel.sincronizarTodo() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Sincronizar con API"
+                            contentDescription = "Sincronizar APIs"
                         )
                     }
                 },
@@ -102,7 +100,7 @@ fun PantallaPrincipal(viewModel: MainViewModel) {
                 val nuevoElemento = ElementoEntity(
                     id = nuevoId,
                     titulo = "Elemento $nuevoId",
-                    descripcion = "Elemento guardado en Room localmente",
+                    descripcion = "Guardado localmente en Room",
                     precio = 25.0
                 )
                 viewModel.agregarElementoLocal(nuevoElemento)
@@ -138,8 +136,8 @@ fun PantallaPrincipal(viewModel: MainViewModel) {
                 ) {
                     Text("No hay elementos en la base de datos local.")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { viewModel.sincronizarConApi() }) {
-                        Text("Descargar de API")
+                    Button(onClick = { viewModel.sincronizarTodo() }) {
+                        Text("Descargar de APIs")
                     }
                 }
             } else {
